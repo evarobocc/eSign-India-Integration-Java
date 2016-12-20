@@ -543,7 +543,7 @@ public class ESign {
             PdfReader readerpdf = new PdfReader(Inputfilepath);
             OutputStream fout = new FileOutputStream(Outputfilepath);
 
-            PdfStamper stamperpdf = PdfStamper.createSignature(readerpdf, fout, '\0');
+            PdfStamper stamperpdf = PdfStamper.createSignature(readerpdf, fout, '\0',null,true);
             PdfSignatureAppearance appearance = stamperpdf.getSignatureAppearance();
             appearance.setReason(userAppearance.getReason());
             appearance.setLocation(userAppearance.getLocation());
