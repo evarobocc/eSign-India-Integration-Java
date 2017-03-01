@@ -44,7 +44,7 @@ aspID       |ASP ID provided by ESP
 pfxFilePath|Path of the document signer certificate file (.pfx/.p12) required for signing eSign/OTP xml requests. Can be in any physical location with read permission. 
 pfxPassword	|Password of .pfx/.p12 file. 
 pfxAlias|Alias of pfx file. 
-cerFilePath|Public encryption certificate from [UIDAI (Production)](https://developer.uidai.gov.in/site/sites/default/files/uidai_auth_prod.cer). 
+cerFilePath|Public encryption certificate from [UIDAI (Production)](http://uidai.gov.in/images/authentication/uidai_auth_prod.zip). 
 otpURL|URL of ESP to post request to generate OTP. 
 eSignURL|URL of ESP to post request to sign pdf/text.
 
