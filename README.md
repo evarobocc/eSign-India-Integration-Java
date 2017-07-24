@@ -47,6 +47,3 @@ pfxAlias|Alias of pfx file.
 cerFilePath|Public encryption certificate from [UIDAI (Production)](http://uidai.gov.in/images/authentication/uidai_auth_prod.zip). 
 otpURL|URL of ESP to post request to generate OTP. 
 eSignURL|URL of ESP to post request to sign pdf/text.
-
-## Sandbox account
-Developers can use [sandbox](https://server2.e-mudhra.com:8443/eServicesSandbox/) account to integrate and test their applications.
