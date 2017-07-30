@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2016 eMudhra Limited
+ * Copyright (c) 2017 eMudhra Limited
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,6 @@ import com.itextpdf.text.pdf.PdfSignatureAppearance;
 import com.itextpdf.text.pdf.PdfStamper;
 import com.itextpdf.text.pdf.PdfString;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -129,8 +128,6 @@ public class ESign {
     private final String pfxFilePath;
     private final String pfxPassword;
     private final String pfxAlias;
-    private final String cerFilePath;
-    private final String otpURL;
     private final String eSignURL;
 
     /**
@@ -139,126 +136,38 @@ public class ESign {
      * @param pfxFilePath
      * @param pfxPassword
      * @param pfxAlias
-     * @param cerFilePath
-     * @param otpURL
      * @param eSignURL
      * 
      */
-    public ESign(String aspID, String pfxFilePath, String pfxPassword, String pfxAlias, String cerFilePath, String otpURL, String eSignURL) {
+    public ESign(String aspID, String pfxFilePath, String pfxPassword, String pfxAlias, String eSignURL) {
         this.aspID = aspID;
         this.pfxFilePath = pfxFilePath;
         this.pfxPassword = pfxPassword;
-        this.pfxAlias = pfxAlias;
-        this.cerFilePath = cerFilePath;
-        this.otpURL = otpURL;
+        this.pfxAlias = pfxAlias;        
         this.eSignURL = eSignURL;
     }
 
     /**
      *
-     * @param Aadhaarnumber
-     * @param UniqueTransactionId
-     * @return
-     *
-     */
-    public Response getOTP(String Aadhaarnumber, String UniqueTransactionId) {
-        int Aadhaarlength = 0;
-        Response res = new Response();
-        try {
-            if (UniqueTransactionId == null || UniqueTransactionId.trim().equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("Transaction id is not passed.");
-                return res;
-            }
-            if (Aadhaarnumber == null || Aadhaarnumber.trim().equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("Aadhaar number is not passed.");
-                return res;
-            }
-            Aadhaarlength = (int) Math.log10(Long.parseLong(Aadhaarnumber)) + 1;
-            if (Aadhaarlength < 12 || Aadhaarlength > 12) {
-                res.setStatus(false);
-                res.setErrorMessage("Length of aadhaar number is not valid.");
-                return res;
-            } else if (aspID == null || aspID.equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("ASP id is not passed.");
-                return res;
-            } else if (pfxFilePath == null || pfxFilePath.equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("PFX file path is not passed.");
-                return res;
-            } else if (pfxPassword == null || pfxPassword.equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("Password of PFX file is not passed.");
-                return res;
-            } else if (pfxAlias == null || pfxAlias.equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("Alias of PFX file is not passed.");
-                return res;
-            } else if (otpURL == null || otpURL.equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("OTP URL is not passed.");
-                return res;
-            } else {
-                KeyStore.PrivateKeyEntry keyEntry = Utilities.getKeyFromKeyStore(pfxFilePath, pfxPassword.toCharArray(), pfxAlias);
-                if (keyEntry == null) {
-                    res.setStatus(false);
-                    res.setErrorMessage("Utilities.getKeyFromKeyStore has returned null value.");
-                    return res;
-                }
-                String RequestTs = Utilities.getCurrentDateTimeISOFormat();
-                String rawXml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?><OTP ver=\"1.0\" ts=\"" + RequestTs + "\" txn=\"" + UniqueTransactionId + "\" aspId=\"" + aspID + "\" uid=\"" + Aadhaarnumber + "\"></OTP>";
-                Document XmlDoc = Utilities.convertStringToDocument(rawXml);
-                String XmlSigned = Utilities.signXML(Utilities.convertDocumentToString(XmlDoc), true, keyEntry);
-                String Xml = XmlSigned;
-                String otpUrlParameters = URLEncoder.encode(Xml, "UTF-8");
-                String otpResponseXml = Utilities.excutePostXml(otpURL, otpUrlParameters);
-                Document doc = Utilities.convertStringToDocument(otpResponseXml);
-                String errcode = Utilities.getXpathValue(xPath, "/OTPResp/@errCode", doc);
-                String WsErrMsg = xPath.compile("/OTPResp/@errMsg").evaluate(doc);
-                res.setErrorCode(errcode);
-                res.setErrorMessage(WsErrMsg);                
-                res.setResponseXML(otpResponseXml);
-                res.setStatus(true);
-                return res;
-            }
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            res.setStatus(false);
-            res.setErrorMessage(e.getLocalizedMessage());
-            return res;
-        }
-    }
-
-    /**
-     *
      * @param AadharNumber
-     * @param AuthenticationValue
      * @param UniqueTransactionId
      * @param TextToBeSigned
-     * @param details
      * @param authMode
+     * @param eKYCRespXML
+     * @param documentInfo
      * @return
      * 
      */
-    public Response signText(String AadharNumber, String AuthenticationValue, String UniqueTransactionId, String TextToBeSigned, AuthMetaDetails details, AuthMode authMode) {
+    public Response signText(String AadharNumber, String UniqueTransactionId, String TextToBeSigned, AuthMode authMode, String eKYCRespXML, String documentInfo) {
         String eSignResponseXml = "";
         Response res = new Response();
         int Aadhaarlength = 0;
-        String rawxml = "";
         try {
             if (AadharNumber == null || AadharNumber.trim().equals("")) {
                 res.setStatus(false);
                 res.setErrorMessage("Aadhaar number is not passed.");
                 return res;
-            }
-            if (AuthenticationValue == null || AuthenticationValue.trim().equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("Authentication value is not passed.");
-                return res;
-            }
+            }            
             if (UniqueTransactionId == null || UniqueTransactionId.trim().equals("")) {
                 res.setStatus(false);
                 res.setErrorMessage("Transaction id is not passed.");
@@ -274,48 +183,13 @@ public class ESign {
                 res.setStatus(false);
                 res.setErrorMessage("Length of aadhaar is not valid.");
                 return res;
-            }
-            if (!(details.fdc.equals("NC") || details.fdc.equals("NA"))) {//
-                res.setStatus(false);
-                res.setErrorMessage("Invalid fdc value please set it as NC for Biometric or NA for non-Biometric");
-                return res;
-            }
-            if (!(details.idc.equals("NC") || details.idc.equals("NA"))) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid idc value please set it as NC for Iris or NA for non-Iris");
-                return res;
-            }
-            if (!(details.lot.equals("G") || details.lot.equals("P"))) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid lot value please set it as G for geo coding or P for postal pincode");
-                return res;
-            }
+            }            
             if (authMode == null) {
                 res.setStatus(false);
                 res.setErrorMessage("Authmode type is empty");
                 return res;
             }
-
-            String lovpostal = "^[0-9]{1,6}$";
-            String lovgeo = "^[0-9]{10}\\.{1}[0-9]{4}[,]{1}[0-9]{10}\\.{1}[0-9]{4}[,]{1}[0-9]{4}\\.{1}[0-9]{2}$";
-
-            if (!((details.lov.matches(lovpostal) && details.lot.equals("P")) || (details.lot.equals("G") && details.lov.matches(lovgeo)))) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid lov value please set it to a 6 digit pincode number if lot value is P or to a geo-code value if lot value is G");
-                return res;
-            }
-            if (!details.pip.equals("NA")) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid pip value please set it as NA");
-                return res;
-            }
-            String pattern = "^[a-zA-Z0-9:]{1,20}$";
-            if (!details.udc.matches(pattern)) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid udc value please set it as an alphanumeric value");
-                return res;
-            }
-
+            
             MessageDigest mDigest = MessageDigest.getInstance("SHA-256");
             byte[] result;
             result = mDigest.digest(TextToBeSigned.getBytes("UTF8"));
@@ -331,88 +205,37 @@ public class ESign {
                 res.setErrorMessage("Utilities.getKeyFromKeyStore has returned null value.");
                 return res;
             }
-            String tid = "public";
-            String ac = "";
-            String lk = "";
-            String sa = "";
+            
             String timestamp = Utilities.getCurrentDateTimeISOFormat();
 
-            String pvelement = "";
             int AuthMode = 0;
             switch (authMode) {
                 case OTP:
-                    pvelement = "<Pv otp=\"" + AuthenticationValue + "\"/>";
                     AuthMode = 1;
                     break;
                 case FP:
-                    pvelement = "<Bios><Bio type=\"FMR\" posh=\"UNKNOWN\">" + AuthenticationValue + "</Bio></Bios>";
                     AuthMode = 2;
                     break;
                 case IRIS:
-                    pvelement = "<Bios><Bio type=\"IIR\" posh=\"UNKNOWN\">" + AuthenticationValue + "</Bio></Bios>";
                     AuthMode = 3;
                     break;
             }
-            String certificate_expiry = "";
-            try {
-                certificate_expiry = Utilities.getExpiryDate(cerFilePath);
-            } catch (Exception e) {
-                res.setStatus(false);
-                res.setErrorMessage(e.getMessage());
-                return res;
-            }
-            byte[] sessionKey = (null);
-            byte[] encryptedSessionKey = (null);
-            sessionKey = Utilities.generateSessionKey();
-            try {
-                encryptedSessionKey = Utilities.encryptUsingPublicKey(sessionKey, cerFilePath);
-            } catch (Exception ex) {
-                res.setStatus(false);
-                res.setErrorMessage(ex.getMessage());
-                return res;
-            }
-            String skey;
-            skey = new String(Base64.encode(encryptedSessionKey), "UTF8");
-            String pidxml = "<Pid xmlns=\"http://www.uidai.gov.in/authentication/uid-auth-request-data/1.0\" ts=\"" + timestamp + "\" ver=\"1.0\">" + pvelement + "</Pid>";
-            byte[] pidXmlBytes = pidxml.getBytes("UTF8");
-            byte[] encXMLPIDData = (null);
-            encXMLPIDData = Utilities.encryptUsingSessionKey(sessionKey, pidXmlBytes);
-
-            String PidEncoded = new String(Base64.encode(encXMLPIDData), "UTF8");
-            byte[] hmac = Utilities.generateSha256Hash(pidXmlBytes);
-            byte[] encryptedHmacBytes = (null);
-            encryptedHmacBytes = Utilities.encryptUsingSessionKey(sessionKey, hmac);
-            String HashEncoded = new String(Base64.encode(encryptedHmacBytes), "UTF8");
-            String AuthXml = "";
-            String AuthHash = "";
-            String esignxml = "";
-            AuthXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Auth xmlns=\"http://www.uidai.gov.in/authentication/uid-auth-request/1.0\" uid=\"" + AadharNumber + "\" tid=\"" + tid + "\" ac=\"" + ac + "\" sa=\"" + sa + "\" ver=\"1.6\" txn=\"" + UniqueTransactionId + "\" lk=\"" + lk + "\"><Meta fdc=\"" + details.getFdc() + "\" idc=\"" + details.getIdc() + "\" lot=\"" + details.getLot() + "\" lov=\"" + details.getLov() + "\" pip=\"" + details.getPip() + "\" udc=\"" + details.getUdc() + "\"/><Skey ci=\"" + certificate_expiry + "\">" + skey + "</Skey><Data type=\"X\">" + PidEncoded + "</Data><Hmac>" + HashEncoded + "</Hmac></Auth>";
-            AuthHash = Utilities.sha256(new String(Base64.encode(AuthXml.getBytes("UTF8")), "UTF8"));
-            esignxml = "<Esign ver=\"1.6\" sc=\"Y\" ts=\"" + timestamp + "\" txn=\"" + UniqueTransactionId + "\" uid=\"" + AadharNumber + "\" aspId=\"" + aspID + "\" AuthMode=\"" + AuthMode + "\" responseSigType=\"" + "pkcs7" + "\" preVerified=\"" + "n" + "\">"
+            String esignxml = "<Esign ver=\"2.0\" sc=\"Y\" ekycMode=\"U\" ekycIdType=\"A\" ekycId=\"" + AadharNumber + "\" aspId=\"" + aspID + "\" AuthMode=\"" + AuthMode + "\"  responseSigType=\"pkcs7\" preVerified=\"" + "y" + "\"  ts=\"" + timestamp + "\" txn=\"" + UniqueTransactionId + "\">"
                     + "<Docs>\n"
-                    + "<InputHash id=\"1\" hashAlgorithm=\"SHA256\">" + docHash + "</InputHash>\n"
+                    + "<InputHash id=\"1\" hashAlgorithm=\"SHA256\" docInfo=\"" + documentInfo + "\">" + docHash + "</InputHash>\n"
                     + "</Docs>"
-                    + "<AuthHash>" + AuthHash + "</AuthHash>"
+                    + "<AspKycData>" + eKYCRespXML + "</AspKycData>"
                     + "</Esign>";
 
             Document XmlDoc = Utilities.convertStringToDocument(esignxml);
             String esignxmlSigned = Utilities.signXML(Utilities.convertDocumentToString(XmlDoc), true, keyEntry);
-            String esignenocedxml = new String(Base64.encode(esignxmlSigned.getBytes("UTF8")), "UTF8");
-
-            String AuthRequestXML = "";
-            String authencodedxml = "";
-            authencodedxml = new String(Base64.encode(AuthXml.getBytes("UTF8")), "UTF8");
-            AuthRequestXML = "<Aadhaar>" + authencodedxml + "</Aadhaar>\n";
-            rawxml = "<Request>\n"
-                    + "<EsignXml>" + esignenocedxml + "</EsignXml>\n"
-                    + AuthRequestXML + "</Request>";
-            
-            String eSignUrlParameters = URLEncoder.encode(rawxml, "UTF-8");
+                        
+            String eSignUrlParameters = URLEncoder.encode(esignxmlSigned, "UTF-8");
             eSignResponseXml = Utilities.excutePostXml(eSignURL, eSignUrlParameters);            
             res.setResponseXML(eSignResponseXml);
             String ResponseXml = eSignResponseXml;
             Document doc = Utilities.convertStringToDocument(ResponseXml);
-            String pkcs7response = "false";
+            String pkcs7response = "";
             String WsErrMsg = "";
             String RespStatus = Utilities.getXpathValue(xPath, "/EsignResp/@status", doc);
             if (RespStatus.equals("1")) {
@@ -453,17 +276,17 @@ public class ESign {
     /**
      *
      * @param AadharNumber
-     * @param AuthenticationValue
      * @param UniqueTransactionId
      * @param Inputfilepath
      * @param Outputfilepath
-     * @param details
      * @param userAppearance
      * @param authMode
+     * @param eKYCRespXML
+     * @param documentInfo
      * @return
      * 
      */
-    public Response signPDF(String AadharNumber, String AuthenticationValue, String UniqueTransactionId, String Inputfilepath, String Outputfilepath, AuthMetaDetails details, SignatureAppearance userAppearance, AuthMode authMode){
+    public Response signPDF(String AadharNumber, String UniqueTransactionId, String Inputfilepath, String Outputfilepath, SignatureAppearance userAppearance, AuthMode authMode,String eKYCRespXML, String documentInfo ){
         String eSignResponseXml = "";
         Response res = new Response();
         int Aadhaarlength = 0;
@@ -473,12 +296,7 @@ public class ESign {
                 res.setStatus(false);
                 res.setErrorMessage("Aadhaar number is not passed.");
                 return res;
-            }
-            if (AuthenticationValue == null || AuthenticationValue.trim().equals("")) {
-                res.setStatus(false);
-                res.setErrorMessage("Authentication value is not passed.");
-                return res;
-            }
+            }            
             if (UniqueTransactionId == null || UniqueTransactionId.trim().equals("")) {
                 res.setStatus(false);
                 res.setErrorMessage("Transaction id is not passed.");
@@ -500,50 +318,16 @@ public class ESign {
                 res.setErrorMessage("Length of aadhaar number is not valid.");
                 return res;
             }
-            if (!(details.fdc.equals("NC") || details.fdc.equals("NA"))) {//
-                res.setStatus(false);
-                res.setErrorMessage("Invalid fdc value please set it as NC for Biometric or NA for non-Biometric");
-                return res;
-            }
-            if (!(details.idc.equals("NC") || details.idc.equals("NA"))) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid idc value please set it as NC for Iris or NA for non-Iris");
-                return res;
-            }
-            if (!(details.lot.equals("G") || details.lot.equals("P"))) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid lot value please set it as G for geo coding or P for postal pincode");
-                return res;
-            }
             if (authMode == null) {
                 res.setStatus(false);
                 res.setErrorMessage("Authmode type is empty");
                 return res;
             }
-
-            String lovpostal = "^[0-9]{1,6}$";
-            String lovgeo = "^[0-9]{10}\\.{1}[0-9]{4}[,]{1}[0-9]{10}\\.{1}[0-9]{4}[,]{1}[0-9]{4}\\.{1}[0-9]{2}$";
-
-            if (!((details.lov.matches(lovpostal) && details.lot.equals("P")) || (details.lot.equals("G") && details.lov.matches(lovgeo)))) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid lov value please set it to a 6 digit pincode number if lot value is P or to a geo-code value if lot value is G");
-                return res;
-            }
-            if (!details.pip.equals("NA")) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid pip value please set it as NA");
-                return res;
-            }
-            String pattern = "^[a-zA-Z0-9:]{1,20}$";
-            if (!details.udc.matches(pattern)) {
-                res.setStatus(false);
-                res.setErrorMessage("Invalid udc value please set it as an alphanumeric value");
-                return res;
-            }
+            
             PdfReader readerpdf = new PdfReader(Inputfilepath);
             OutputStream fout = new FileOutputStream(Outputfilepath);
 
-            PdfStamper stamperpdf = PdfStamper.createSignature(readerpdf, fout, '\0',null,true);
+            PdfStamper stamperpdf = PdfStamper.createSignature(readerpdf, fout, '\0');
             PdfSignatureAppearance appearance = stamperpdf.getSignatureAppearance();
             appearance.setReason(userAppearance.getReason());
             appearance.setLocation(userAppearance.getLocation());
@@ -593,74 +377,27 @@ public class ESign {
             int AuthMode = 0;
             switch (authMode) {
                 case OTP:
-                    pvelement = "<Pv otp=\"" + AuthenticationValue + "\"/>";
                     AuthMode = 1;
                     break;
                 case FP:
-                    pvelement = "<Bios><Bio type=\"FMR\" posh=\"UNKNOWN\">" + AuthenticationValue + "</Bio></Bios>";
                     AuthMode = 2;
                     break;
                 case IRIS:
-                    pvelement = "<Bios><Bio type=\"IIR\" posh=\"UNKNOWN\">" + AuthenticationValue + "</Bio></Bios>";
                     AuthMode = 3;
                     break;
             }
-            String certificate_expiry = "";
-            try {
-                certificate_expiry = Utilities.getExpiryDate(cerFilePath);
-            } catch (Exception e) {
-                res.setStatus(false);
-                res.setErrorMessage(e.getMessage());
-                return res;
-            }
-            byte[] sessionKey = null;
-            byte[] encryptedSessionKey = null;
-            sessionKey = Utilities.generateSessionKey();
-            try {
-                encryptedSessionKey = Utilities.encryptUsingPublicKey(sessionKey, cerFilePath);
-            } catch (Exception ex) {
-                res.setStatus(false);
-                res.setErrorMessage(ex.getMessage());
-                return res;
-            }
-            String skey = new String(Base64.encode(encryptedSessionKey), "UTF8");
-            String pidxml = "<Pid xmlns=\"http://www.uidai.gov.in/authentication/uid-auth-request-data/1.0\" ts=\"" + timestamp + "\" ver=\"1.0\">" + pvelement + "</Pid>";
-            byte[] pidXmlBytes = pidxml.getBytes("UTF8");
-            byte[] encXMLPIDData = null;
-            encXMLPIDData = Utilities.encryptUsingSessionKey(sessionKey, pidXmlBytes);
-
-            String PidEncoded = new String(Base64.encode(encXMLPIDData), "UTF8");
-            byte[] hmac = Utilities.generateSha256Hash(pidXmlBytes);
-            byte[] encryptedHmacBytes = null;
-            encryptedHmacBytes = Utilities.encryptUsingSessionKey(sessionKey, hmac);
-            String HashEncoded = new String(Base64.encode(encryptedHmacBytes), "UTF8");
-            String AuthXml = "";
-            String AuthHash = "";
-            String esignxml = "";
-            AuthXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Auth xmlns=\"http://www.uidai.gov.in/authentication/uid-auth-request/1.0\" uid=\"" + AadharNumber + "\" tid=\"" + tid + "\" ac=\"" + ac + "\" sa=\"" + sa + "\" ver=\"1.6\" txn=\"" + UniqueTransactionId + "\" lk=\"" + lk + "\"><Meta fdc=\"" + details.getFdc() + "\" idc=\"" + details.getIdc() + "\" lot=\"" + details.getLot() + "\" lov=\"" + details.getLov() + "\" pip=\"" + details.getPip() + "\" udc=\"" + details.getUdc() + "\"/><Skey ci=\"" + certificate_expiry + "\">" + skey + "</Skey><Data type=\"X\">" + PidEncoded + "</Data><Hmac>" + HashEncoded + "</Hmac></Auth>";
-            AuthHash = Utilities.sha256(new String(Base64.encode(AuthXml.getBytes("UTF8")), "UTF8"));
-            esignxml = "<Esign ver=\"1.6\" sc=\"Y\" ts=\"" + timestamp + "\" txn=\"" + UniqueTransactionId + "\" uid=\"" + AadharNumber + "\" aspId=\"" + aspID + "\" AuthMode=\"" + AuthMode + "\" responseSigType=\"" + "pkcs7" + "\" preVerified=\"" + "n" + "\">"
+            String esignxml = "<Esign ver=\"2.0\" sc=\"Y\" ekycMode=\"U\" ekycIdType=\"A\" ekycId=\"" + AadharNumber + "\" aspId=\"" + aspID + "\" AuthMode=\"" + AuthMode + "\"  responseSigType=\"pkcs7\" preVerified=\"" + "y" + "\"  ts=\"" + timestamp + "\" txn=\"" + UniqueTransactionId + "\">"
                     + "<Docs>\n"
-                    + "<InputHash id=\"1\" hashAlgorithm=\"SHA256\">" + docHash + "</InputHash>\n"
+                    + "<InputHash id=\"1\" hashAlgorithm=\"SHA256\" docInfo=\"" + documentInfo + "\">" + docHash + "</InputHash>\n"
                     + "</Docs>"
-                    + "<AuthHash>" + AuthHash + "</AuthHash>"
+                    + "<AspKycData>" + eKYCRespXML + "</AspKycData>"
                     + "</Esign>";
 
             Document XmlDoc = Utilities.convertStringToDocument(esignxml);
             String esignxmlSigned = Utilities.signXML(Utilities.convertDocumentToString(XmlDoc), true, keyEntry);
-            String esignenocedxml = new String(Base64.encode(esignxmlSigned.getBytes("UTF8")), "UTF8");
-
-            String AuthRequestXML = "";
-            String authencodedxml = "";
-            authencodedxml = new String(Base64.encode(AuthXml.getBytes("UTF8")),"UTF8");
-            AuthRequestXML = "<Aadhaar>" + authencodedxml + "</Aadhaar>\n";
-            rawxml = "<Request>\n"
-                    + "<EsignXml>" + esignenocedxml + "</EsignXml>\n"
-                    + AuthRequestXML + "</Request>";
-            
-            String eSignurl = eSignURL;
-            String eSignUrlParameters = URLEncoder.encode(rawxml, "UTF-8");
-            eSignResponseXml = Utilities.excutePostXml(eSignurl, eSignUrlParameters);
+                        
+            String eSignUrlParameters = URLEncoder.encode(esignxmlSigned, "UTF-8");
+            eSignResponseXml = Utilities.excutePostXml(eSignURL, eSignUrlParameters);
             res.setResponseXML(eSignResponseXml);
             String ResponseXml = eSignResponseXml;
             Document doc = Utilities.convertStringToDocument(ResponseXml);
@@ -788,115 +525,6 @@ public class ESign {
     }
 
     /**
-     * Auth Meta Details used to construct AuthXML
-     */
-    public static class AuthMetaDetails {
-        private final String fdc;
-        private final String idc;
-        private final String lot;
-        private final String lov;
-        private final String pip;
-        private final String udc;
-
-        /**
-         *
-         * @param fdc
-            (mandatory) Fingerprint device code. This is a unique code provided for
-            the fingerprint sensor-extractor combination. AUAs will have access to this code
-            through UIDAI portal. This is an alpha-numeric string of maximum length 10.
-            o While using fingerprint authentication, this code is mandatory and should
-            be provided. If the code is unknown or device is not certified yet, use “NC”.
-            o For non fingerprint authentication (when not using “bio” type “FMR” or
-            “FIR”), use the value “NA”
-         * @param idc
-            (mandatory) Iris device code. This is a unique code provided for the iris
-            sensor-extractor combination. AUAs will have access to this code through UIDAI
-            portal. This is an alpha-numeric string of maximum length 10.
-            o While using iris authentication, this code is mandatory and should be
-            provided. If the code is unknown or device is not certified yet, use “NC”.
-            o For non iris authentication, use the value “NA”
-         * @param lot
-            (mandatory) Location type. Valid values are “G” and “P”.
-            o G – stands for geo coding in lat, long format
-            o P – stands for postal pin code
-         * @param lov
-            (mandatory) Location Value.
-            o If “lot” value is “G” then, this “lov” attribute must carry actual “lat,long,alt”
-            of the location. Can be derived using GPS or using alternate method.
-            Lat/Long should be in positive or negative decimal format (ISO 6709).
-            Altitude is optional and may be populated if available.
-            o If “lot” value is “P” then, this “lov” attribute must have a valid 6-digit
-            postal pin code.
-         * @param pip
-            (mandatory) Public IP address of the device. If the device is connected to
-            Internet and has a public IP, then this must be populated with that IP address. If
-            the device has a private IP and is behind a router/proxy/etc, then public IP
-            address of the router/proxy/etc should be set. If no public IP is available, leave it
-            as “NA”.
-         * @param udc
-            (mandatory) Unique Device Code. This is a unique code for the
-            authentication device assigned within the AUA domain. This is an alpha-numeric
-            string of maximum length 20.
-            o This allows better reporting and tracking of devices as well as help
-            resolve issues at the device level.
-            o It is highly recommended that AUAs define a unique codification scheme
-            for all their devices.
-            o Suggested format is “[vendorcode][date of deployment][serial number]”
-         */
-        public AuthMetaDetails(String fdc,String idc,String lot,String lov,String pip,String udc)
-        {
-            this.fdc = fdc;
-            this.idc= idc;
-            this.lot = lot;
-            this.lov = lov;
-            this.pip = pip;
-            this.udc = udc;            
-        }
-
-        /**
-         * @return the fdc
-         */
-        protected String getFdc() {
-            return fdc;
-        }
-
-        /**
-         * @return the idc
-         */
-        protected String getIdc() {
-            return idc;
-        }
-
-        /**
-         * @return the lot
-         */
-        protected String getLot() {
-            return lot;
-        }
-
-        /**
-         * @return the lov
-         */
-        protected String getLov() {
-            return lov;
-        }
-
-        /**
-         * @return the pip
-         */
-        protected String getPip() {
-            return pip;
-        }
-
-        /**
-         * @return the udc
-         */
-        protected String getUdc() {
-            return udc;
-        }        
-    }
-
-    /**
      * Detail of signature appearance
      */
     public static class SignatureAppearance {
@@ -958,23 +586,8 @@ public class ESign {
      * Mode of authentication
      */
     public enum AuthMode {
-
-        /**
-         * If authentication mode is OTP.
-         */
-        OTP,
-        /**
-         * If authentication mode is Fingerprint The biometric data should be of
-         * type “Fingerprint Minutiae Record (FMR)”. This data should be in ISO
-         * minutiae format with no proprietary extensions allowed.
-         */
-        FP,
-        /**
-         * If authentication mode is IRIS The biometric data should be of type
-         * “Iris Image Record (IIR)”. The data should be an iris image packaged
-         * in ISO 19794-6 format, which could contain a compressed (or
-         * uncompressed) image having type PNG or Jpeg2000.
-         */
+        OTP,        
+        FP,        
         IRIS;
     }
 
@@ -992,12 +605,7 @@ public class ESign {
                 KeyStore.PrivateKeyEntry entry = (KeyStore.PrivateKeyEntry) ks.getEntry(alias, new KeyStore.PasswordProtection(keyStorePassword));
                 keyFileStream.close();
                 return entry;
-            } catch (RuntimeException ex) {
-                if (keyFileStream != null) {
-                    keyFileStream.close();
-                }
-                throw ex;
-            } catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException | UnrecoverableEntryException ex) {
+            } catch (RuntimeException | KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException | UnrecoverableEntryException ex) {
                 if (keyFileStream != null) {
                     keyFileStream.close();
                 }
@@ -1045,28 +653,7 @@ public class ESign {
             byte[] symmKey = key.getEncoded();
             return symmKey;
         }
-
-        public static byte[] encryptUsingPublicKey(byte[] data, String UidaiEncryptionCerFilePath) throws IOException, GeneralSecurityException, Exception {
-            String ASYMMETRIC_ALGO = "RSA/ECB/PKCS1Padding";
-            PublicKey PublicKeystring = getCertificateFromFile(UidaiEncryptionCerFilePath).getPublicKey();
-            Cipher pkCipher = Cipher.getInstance(ASYMMETRIC_ALGO, providerBC);
-            pkCipher.init(Cipher.ENCRYPT_MODE, PublicKeystring);
-            byte[] encSessionKey = pkCipher.doFinal(data);
-            return encSessionKey;
-        }
-
-        public static byte[] encryptUsingSessionKey(byte[] skey, byte[] data) throws InvalidCipherTextException {
-            PaddedBufferedBlockCipher cipher = new PaddedBufferedBlockCipher(new AESEngine(), new PKCS7Padding());
-            cipher.init(true, new KeyParameter(skey));
-            int outputSize = cipher.getOutputSize(data.length);
-            byte[] tempOP = new byte[outputSize];
-            int processLen = cipher.processBytes(data, 0, data.length, tempOP, 0);
-            int outputLen = cipher.doFinal(tempOP, processLen);
-            byte[] result = new byte[processLen + outputLen];
-            System.arraycopy(tempOP, 0, result, 0, result.length);
-            return result;
-        }
-
+        
         public static byte[] generateSha256Hash(byte[] message) throws NoSuchAlgorithmException {
             String algorithm = "SHA-256";
             byte[] hash = null;
@@ -1193,7 +780,7 @@ public class ESign {
                 return response.toString();
             } catch (RuntimeException ex) {
                 throw ex;
-            } catch (Exception e) {
+            } catch (IOException e) {
                 return e.toString();
             } finally {
 
@@ -1276,35 +863,7 @@ public class ESign {
 
             return stringDate;
         }
-
-        public static X509Certificate getCertificateFromFile(String certificateFile) throws IOException, CertificateException {
-            FileInputStream fis = null;
-            try {
-                ByteArrayInputStream bais = null;
-                // use FileInputStream to read the file
-                fis = new FileInputStream(certificateFile);
-                // read the bytes
-                byte value[] = new byte[fis.available()];
-                int read = fis.read(value);
-                bais = new ByteArrayInputStream(value);
-                // get X509 certificate factory
-                CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
-                fis.close();
-                // certificate factory can now create the certificate
-                return (X509Certificate) certFactory.generateCertificate(bais);
-            } catch (RuntimeException ex) {
-                if (fis != null) {
-                    fis.close();
-                }
-                throw ex;
-            } catch (IOException | CertificateException ex) {
-                if (fis != null) {
-                    fis.close();
-                }
-                throw ex;
-            }
-        }
-
+        
         @SuppressWarnings("unchecked")
         public static KeyInfo getKeyInfo(X509Certificate cert, XMLSignatureFactory fac) {
             // Create the KeyInfo containing the X509Data.
