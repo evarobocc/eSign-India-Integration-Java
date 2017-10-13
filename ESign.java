@@ -335,7 +335,7 @@ public class ESign {
             cal.add(Calendar.MINUTE, 5);
             appearance.setSignDate(cal);
 
-            appearance.setAcro6Layers(true);
+            appearance.setAcro6Layers(false);
             appearance.setCertificationLevel(PdfSignatureAppearance.NOT_CERTIFIED);
             appearance.setImage(null);
 
